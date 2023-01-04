@@ -1,2 +1,2 @@
 # M2ni
-### Hi this is Kyungmin Kim
+# 블로그 1일차
