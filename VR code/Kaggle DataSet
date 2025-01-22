@@ -1,3 +1,0 @@
-import pandas as pd
-
-pd.read_excel('E:\학부 인턴\vreed 관련\vreed data\archive\02 Stimuli Selection\01 360VEs Selection Process  Pilots Ratings.xlsx')
