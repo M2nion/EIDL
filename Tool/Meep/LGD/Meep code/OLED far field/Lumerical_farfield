@@ -1,0 +1,182 @@
+##############################################
+# Do far field projection, accounting for fresnel 
+# reflections that occur at a far field interface.
+#
+# Input properties
+# index_far: refractive index in the 'very far field'. 
+#            In other words, the index beyond the far 
+#            field interface. Should be a single real value (ie. non-dispersive, non-lossy)
+# res:       Resolution of the far field projection
+#
+# Output properties 
+# T_far: fraction of sourcepower transmitted to far field
+#          T_far1:  transmission using default refractive index
+#          T_far2:  transmission using 'index_far' refractive index
+#          T_near:  the near field transmission.  This should be equal 
+#                   to T_far1, but due to various numerical issues, 
+#                   it will not be exactly the same.
+#
+# E2_far: |E|^2 far field profile
+#          E2_far1: field profile using default refractive index
+#          E2_far2: field profile using 'index_far' refractive index
+#	   F_rad1:  Power density using default refractive index
+#	   F_rad2:  Power density using 'index_far' refractive index
+#
+# Copyright 2014 Lumerical Inc
+##############################################
+farfieldfilter(alpha);  # apply far field filtering
+
+# get near field refractive index assuming isotropic medium
+if (havedata("index","index_x")) {
+  index_near = pinch(getdata("index","index_x"));
+} else {
+  index_near = pinch(getdata("index","index_z"));
+}
+
+f = getdata("field","f");  # vector of frequency points
+nf = length(f);  # number of frequency points
+T_near = transmission("field");  # near field transmission through monitor
+
+if (getdata("field","dimension")==3) {
+    # 3D analysis, assuming monitor is in XY plane         
+  
+    # far field projection direction vectors
+    ux = farfieldux("field",1,res,res);
+    uy = farfielduy("field",1,res,res);
+    Ux = meshgrid3dx(ux,uy,f);
+    Uy = meshgrid3dy(ux,uy,f);
+    Uz = sqrt(1-Ux^2-Uy^2)*(Ux^2+Uy^2<=1);
+    Theta = real(acos(Uz));  # Theta has dimensions [res,res,nf] 
+    
+    # Calculate electric field and transmitted power in far field, in the material that the monitor is located within
+    EfarTemp = farfieldpolar3d("field",1:nf,res,res);                              
+    E2far1 =  abs(pinch(EfarTemp,3,2))^2 + abs(pinch(EfarTemp,3,3))^2 ;  # Electric far field in the material that the monitor is located within. (standard far field projection)
+    Power_far1 = 0.5*index_near*sqrt(eps0/mu0) * farfield3dintegrate(E2far1,ux,uy,90,0,0)/sourcepower(f);  # Transmitted power in far field in default far field material
+
+    Frad = 0.5*meshgrid3dz(ux,uy, real(index_near))*sqrt(eps0/mu0)*E2far1/meshgrid3dz(ux, uy, sourcepower(f));
+    
+    # Calculate fresnel power transmission coefficients
+    # initialize variables to hold transmission coefficients of S and P polarized light        
+    Ts = matrix(res,res,nf);
+    Tp = matrix(res,res,nf);        
+    for(i=1:nf){ # loop through each frequency
+        Fresnel = stackrt([index_near(i); index_far],[0;0],i,pinch(Theta,3,i)*180/pi);    
+        Ts(1:res,1:res,i) = reshape( Fresnel.Ts,[res,res] );  # reshape matrix; stackrt returns data as a single vector rather than 2d matrix
+        Tp(1:res,1:res,i) = reshape( Fresnel.Tp,[res,res] );
+    }
+    if (!finite(Ts)) {  Ts(find(!finite(Ts)==1))=0; }  # remove NAN's from matrix if they happen to exist
+    if (!finite(Tp)) {  Tp(find(!finite(Tp)==1))=0; }
+    
+    # Calculate data beyond the far field interface, using Fresnel coefficients, Snells law, etc
+    # Note: The correct expression for the power in a unit of solid angle 3D is
+    # 0.5*sqrt(eps0/mu0)*n2*|E2|^2*dtheta2*dphi2*sin(theta2) = 0.5*sqrt(eps0/mu0)*n1* (Ts*|E1s|^2+Tp*|E1p|^2)*dtheta1*dphi1*sin(theta1)
+    # Remarkably, the sin(theta) that comes from the integration factor, multiplied by the index that comes from 
+    # getting the Poynting vector, cancel on either side since n1*sin(theta1) = n2*sin(theta2) by Snell's law. 
+    # We also have dphi2=dphi1. 
+    # This leaves:
+    # |E2|^2 = (Ts*|E1s|^2+Tp*|E1p|^2)*dtheta1/dtheta2
+    
+    # apply Snells law         
+    index_ratio = meshgrid3dz(ux,uy,index_near/index_far);  # ratio of refractive index in the near field and far field                   
+    Ux2 = meshgrid3dx(ux,uy,f)*index_ratio;  # corrected direction vectors in far field medium
+    Uy2 = meshgrid3dy(ux,uy,f)*index_ratio;
+    ux2 = pinch(pinch(Ux2,3,1),2,1); 
+    uy2 = pinch(pinch(Uy2,3,1),1,1);
+    Uz2 = sqrt(1-Ux2^2-Uy2^2)*(Ux^2+Uy^2<=1);
+    Theta2 = real(acos(Uz2));         
+    
+    Dtheta1_Dtheta2 = cos(Theta2)/(cos(Theta)+1e-9)/index_ratio;  # change of variables from ux,uy to ux2,uy2
+    Dtheta1_Dtheta2 = real(Dtheta1_Dtheta2);
+
+    E2farTemp = Ts * abs(pinch(EfarTemp,3,3))^2 + Tp * abs(pinch(EfarTemp,3,2))^2 ;  # apply fresnel coefficients
+    E2far2 = E2farTemp * Dtheta1_Dtheta2;  # apply change of variables factor
+                                           # E2far2 is the electric field intensity far beyond the far field interface.
+    
+    Power_far2 = 0.5*index_far*sqrt(eps0/mu0) * farfield3dintegrate(E2far2,ux2,uy2,90,0,0)/sourcepower(f);  # Transmitted power in far field beyond far field interface
+
+    Frad2 = 0.5*index_far*sqrt(eps0/mu0)*E2far2/meshgrid3dz(ux, uy, sourcepower(f));
+
+    # Package results into datasets
+    T_far = matrixdataset("T_far");
+    T_far.addparameter("lambda",c/f,"f",f);
+    T_far.addattribute("T_far1",Power_far1);
+    T_far.addattribute("T_far2",Power_far2);
+    T_far.addattribute("T_near",T_near);
+ 
+    E2_far = matrixdataset("E2_far");
+    E2_far.addparameter("ux",ux);
+    E2_far.addparameter("uy",uy);
+    E2_far.addparameter("lambda",c/f,"f",f);
+    E2_far.addattribute("E2_far1",E2far1);
+    E2_far.addattribute("E2_far2",interp(E2far2,ux2,uy2,f,ux,uy,f));
+    E2_far.addattribute("F_rad1",Frad);
+    E2_far.addattribute("F_rad2",interp(Frad2,ux2,uy2,f,ux,uy,f));
+
+} else {
+    # 2D analysis   
+ 
+    # far field projection direction vectors
+    theta_vector = farfieldangle("field",1:nf,res);
+    theta = theta_vector(1:res,1);
+  
+    # Calculate electric field and transmitted power in far field, in the material that the monitor is located within    
+    EfarTemp = farfieldpolar2d("field",1:nf,res);  
+    E2far1 =  abs(pinch(EfarTemp,2,2))^2 + abs(pinch(EfarTemp,2,3))^2 ;  # Electric far field in the material that the monitor is located within. (standard far field projection)
+    Power_far1 = 0.5*index_near*sqrt(eps0/mu0) * farfield2dintegrate(E2far1,theta,90,0)/sourcepower(f);  # Transmitted power in far field in default far field material
+
+    Frad = 0.5*meshgridy(theta,real(index_near))*sqrt(eps0/mu0)*E2far1/meshgridy(theta, sourcepower(f));
+
+    # Calculate fresnel power transmission coefficients
+    # initialize variables to hold transmission coefficients    
+    Ts = matrix(res,nf);
+    Tp = matrix(res,nf);
+    for(i=1:nf){  # loop through frequency points
+        Fresnel = stackrt([index_near(i); index_far],[0;0],i,theta);
+        Ts(1:res,i) = Fresnel.Ts;
+        Tp(1:res,i) = Fresnel.Tp;
+    } # end frequency loop
+    if (!finite(Ts)) {  Ts(find(!finite(Ts)==1))=0; }  # remove NAN's from matrix if they happen to exist
+    if (!finite(Tp)) {  Tp(find(!finite(Tp)==1))=0; }
+
+    # Calculate data beyond the far field interface, using Fresnel coefficients, snells law, etc
+    # Note: The correct expression for the power per angle in 2D is shown below. Notice that the sin(theta) 
+    # is not present (compared to the 3D case) in the integration factor, so we have:
+    # 0.5*sqrt(eps0/mu0)*n2*|E2|^2*dtheta2 = 0.5*sqrt(eps0/mu0)*n1*(Ts*|E1s|^2+Tp*|E1p|^2)*dtheta1
+    # This leaves:
+    # |E2|^2 = n1/n2*(Ts*|E1s|^2+Tp*|E1p|^2)*dtheta1/dtheta2
+    # Interestingly, the n1/n2 does not cancel in 2D, since the sin(theta) term is not present.
+    
+    # apply Snells law    
+    index_ratio = meshgridy(theta,index_near/index_far);  # ratio of near field refractive index to far field index
+    theta2 = asin(index_ratio*sin(theta_vector*pi/180))*180/pi;
+    dtheta1_dtheta2 = cos(theta2*pi/180)/(index_ratio*cos(theta_vector*pi/180)+1e-8);  # change of variables from theta to theta2
+    dtheta1_dtheta2 = real(dtheta1_dtheta2);
+    
+    E2farTemp = index_ratio * ( Ts * abs(pinch(EfarTemp,2,3))^2 + Tp * abs(pinch(EfarTemp,2,2))^2 );  # apply Fresnel coefficients
+    E2far2 = E2farTemp * dtheta1_dtheta2;   # apply change of variables factor, E2far2 is the electric far field intensity beyond the far field interface.
+    
+    Power_far2 = 0.5*index_far*sqrt(eps0/mu0) * farfield2dintegrate(E2far2,pinch(theta2,2,1),90,0)/sourcepower(f);  # Transmitted power in far field beyond far field interface
+
+    Frad2 = 0.5*index_far*sqrt(eps0/mu0)*E2far2/meshgridy(theta, sourcepower(f));
+
+    # Remove data at complex angles (past 90)
+    pos = find(abs(theta2(1:res,1))<90);
+    theta2 = theta2(pos,1);
+    E2far2 = E2far2(pos,1:nf); 
+    Frad2 = Frad2(pos, :);
+
+    # Package results into datasets
+    T_far = matrixdataset("T_far");
+    T_far.addparameter("lambda",c/f,"f",f);
+    T_far.addattribute("T_far1",Power_far1);
+    T_far.addattribute("T_far2",Power_far2);
+    T_far.addattribute("T_near",T_near);
+
+    E2_far = matrixdataset("E2_far");
+    E2_far.addparameter("theta",theta);
+    E2_far.addparameter("lambda",c/f,"f",f);
+    E2_far.addattribute("E2_far1",E2far1);
+    E2_far.addattribute("E2_far2",interp(E2far2,theta2,f,theta,f));
+    E2_far.addattribute("F_rad1", Frad);
+    E2_far.addattribute("F_rad2", interp(Frad2,theta2,f,theta,f));
+}

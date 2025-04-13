@@ -1,0 +1,65 @@
+######################################################
+# Script file: OLED_2D_nopattern.lsf
+#
+# Description: this file will characterize the
+#	structure defined in OLED_2D.fsp. without
+#	pattern, and will calculate and plot:
+#	- the fraction of emitted power in different
+#	  layers
+#	- the farfield distribution in air
+#	- the decay rate enhancement (relative to
+#	  homogeneous emitter)
+#
+# Note:	these results are obtained from a sweep over
+#	the emitter orientation. The script will run
+#	the sweep if it doesn't contain any result.
+#
+# Copyright 2018, Lumerical Inc.
+######################################################
+
+sweep_name = "nopattern_dipole_orientation";
+
+# run the parameter sweep if there are no sweep results
+if (havesweepresult(sweep_name) != 1 ) {
+    runsweep;
+    save; 
+}
+
+# Get no pattern results
+np_E2_far = getsweepresult(sweep_name,"E2_far_avg");
+np_T_far = getsweepresult(sweep_name,"T_far_avg");
+np_dipolePower = getsweepresult(sweep_name,"dipolePower_avg");
+
+f     = np_E2_far.f;
+theta = np_E2_far.theta;
+
+# for the unpatterned case, plot fraction of power transmitted 
+# into the air, trapped in the glass substrate, and trapped
+# in the OLED structure
+Power_total = np_dipolePower.dipole_power    / np_dipolePower.dipole_power;
+Power_air   = np_T_far.T_far2                / np_dipolePower.dipole_power;
+Power_glass = (np_T_far.T_far1-np_T_far.T_far2) / np_dipolePower.dipole_power;
+Power_OLED  = Power_total - Power_air - Power_glass;
+
+
+#### plot results ###
+
+# For unpatterned structure, plot the cumulative power lost in each region:
+# OLED thin layers, Glass or Air.
+Power = matrixdataset("Fraction of emitted power");
+Power.addparameter("lambda", c/f, "f", f);
+Power.addattribute("Air", real(Power_air));
+Power.addattribute("Air + Glass", real(Power_air) + real(Power_glass));
+Power.addattribute("Air + Glass + OLED", real(Power_OLED) + real(Power_glass) + real(Power_air));
+plot(c/f*1e6, real(Power_air), real(Power_air)+real(Power_glass), real(Power_OLED) + real(Power_glass) + real(Power_air), 
+	"wavelength(um)","Fraction of emitted power (cumulative)","Unpatterned OLED");
+legend("Air","Air + Glass","Air + Glass + OLED");
+
+# Plot angular distribution of far field radiation (function of angle and frequency) 
+# for the unpatterned device
+image(np_E2_far.theta,c/np_E2_far.f*1e6,np_E2_far.E2_far2,"theta (deg)","wavelength (um)","far field in air, no PC");
+
+# Plot decay rate enhancement for the unpatterened structure, relative to homogeneous emitter region
+plot(c/f*1e6,np_dipolePower.dipole_power,np_dipolePower.dipole_power_box,
+	"wavelength(um)","dipole power","Decay rate enhancement (relative to homogeneous emitter)");
+legend("no pattern (dipolepower method)","no pattern (box method)");
