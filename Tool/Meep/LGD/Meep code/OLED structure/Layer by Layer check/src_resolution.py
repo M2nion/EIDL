@@ -38,7 +38,7 @@ def sourcepower(resolution):
     sim = mp.Simulation(
         cell_size=cell_size,
         boundary_layers=pml_layers,
-        default_material=mp.Medium(index=1.0),
+        default_material=mp.Medium(index=1),
         sources=sources,
         resolution=resolution
     )
