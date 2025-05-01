@@ -62,7 +62,7 @@ def sourcepower(resolution):
     )
 
     # 시뮬레이션 실행
-    sim.run(until=50)
+    sim.run(until=20)
 
     # Flux 데이터 얻기
     flux_freqs = np.array(mp.get_flux_freqs(flux_monitor))  # 주파수 배열
