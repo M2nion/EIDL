@@ -5,7 +5,7 @@ import csv
 def sourcepower(resolution):
 
     # === 설정 ===
-    cell_size = mp.Vector3(3, 1, 0)
+    cell_size = mp.Vector3(10, 10, 0)
     fcen = 1.75        # Gaussian source 중심 주파수
     df = 3.3           # Gaussian source 대역폭
     nfreq = 301
