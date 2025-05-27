@@ -5,7 +5,7 @@ import csv
 def sourcepower(resolution):
 
     # === 설정 ===
-    cell_size = mp.Vector3(3, 3, 0)
+    cell_size = mp.Vector3(10, 10, 0)
     fcen = 1.75        # Gaussian source 중심 주파수
     df = 3.3           # Gaussian source 대역폭
     nfreq = 300
@@ -32,7 +32,7 @@ def sourcepower(resolution):
     ]
 
     # PML 설정
-    pml_layers = [mp.PML(0.3)]
+    pml_layers = [mp.PML(1)]
 
     # 시뮬레이션 객체 생성
     sim = mp.Simulation(
