@@ -4,10 +4,10 @@ import matplotlib.pyplot as plt
 import meep as mp
 from meep.materials import Ag
 
-resolution = 200  # pixels/μm
+resolution = 50  # pixels/μm
 
 nfreq = 100  # number of frequencies
-ndipole = 1  # number of point dipoles in forward simulation
+ndipole = 3  # number of point dipoles in forward simulation
 
 fcen = 1.0  # center frequency of Gaussian source/monitors
 df = 0.2  # frequency bandwidth of source/monitors
@@ -109,6 +109,8 @@ def forward(n: int, rt: int, is_textured: bool) :
 
     flux = np.abs(res.alpha[0, :, 0]) ** 2
     freqs = mp.get_flux_freqs(flux_mon)
+    sim.plot2D(fields=mp.Ez)
+    plt.show()
 
     return freqs, flux
 
@@ -191,5 +193,8 @@ if __name__ == "__main__":
     plt.legend()
 
     if mp.am_master():
-        fname = f"forward_vs_backward_flux_spectrum_{ndipole}.png"
-        plt.savefig(fname, bbox_inches="tight", dpi=150)
+        plt.savefig(
+            "forward_vs_backward_flux_spectrum.png",
+            bbox_inches="tight",
+            dpi=150,
+        )
