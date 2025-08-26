@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import meep as mp
 from meep.materials import Ag
-
+dd
 # ==============================
 # 전역 파라미터
 # ==============================
