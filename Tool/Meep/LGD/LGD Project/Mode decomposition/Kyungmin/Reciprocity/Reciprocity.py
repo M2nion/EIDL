@@ -15,10 +15,10 @@ from meep.materials import Ag
 # ==============================
 # 전역 파라미터
 # ==============================
-resolution = 10  # pixels/μm
+resolution = 200  # pixels/μm
 
 nfreq    = 100   # number of frequencies
-ndipole  = 11     # number of point dipoles in forward simulation
+ndipole  = 50     # number of point dipoles in forward simulation
 
 fcen = 1.0       # center frequency of Gaussian source/monitors
 df   = 0.2       # frequency bandwidth of source/monitors
@@ -32,6 +32,7 @@ dAg  = 0.5       # Ag back reflector thickness
 
 sx = 1.1
 sy = dpml + dair + hrod + dsub + dAg
+
 
 cell_size  = mp.Vector3(sx, sy)
 pml_layers = [mp.PML(direction=mp.Y, thickness=dpml, side=mp.High)]
