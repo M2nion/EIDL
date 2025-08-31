@@ -298,7 +298,7 @@ def free_mapping(x, eta, beta):
     for i in range(layer_num):
         field = v3[i]
         proj  = mpa.tanh_projection(field, beta, eta)
-        proj = 0.5*(proj[::-1, :] + proj)   # x-축(좌우) 대칭
+        # proj = 0.5*(proj[::-1, :] + proj)   # x-축(좌우) 대칭
         rho_list.append(proj.ravel())
     return npa.concatenate(rho_list, axis=0)
 
