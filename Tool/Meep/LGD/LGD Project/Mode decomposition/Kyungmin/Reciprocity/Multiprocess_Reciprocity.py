@@ -53,6 +53,7 @@ Air = mp.Medium(index=1.0)
 
 # === Design mode 선택: 'grating' 또는 'free'
 DESIGN_MODE = 'grating'   # 'free' 로 바꾸면 freeform 사용
+DESIGN_MODE = 'free'
 
 # 디자인 변수 격자 크기
 Nx = int(design_region_resolution * design_region_width) + 1
