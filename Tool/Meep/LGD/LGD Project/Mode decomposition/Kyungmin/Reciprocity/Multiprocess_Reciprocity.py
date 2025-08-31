@@ -11,6 +11,8 @@ import math
 
 from meep.materials import Ag
 
+mp.verbosity(0)
+
 fontlabel = 16
 
 lambda_min = 0.4       # 최소 파장 (µm)
@@ -163,19 +165,20 @@ else:
 num_sources = 1
 spacing = 10 / resolution
 offsets = [ (i - (num_sources - 1) // 2) * spacing for i in range(num_sources) ]
+source_x_position = 0.5
 
 sources = [
     mp.Source(
         mp.GaussianSource(frequency=fcen, fwidth=df, is_integrated=True),
         component=mp.Ez,
-        center=mp.Vector3(1, center_y_monitor_position, 0)
+        center=mp.Vector3(source_x_position, center_y_monitor_position, 0)
     )
     for offset in offsets
 ]
 
 # ====== 출력 폴더 설정 ======
 ndipole = num_sources
-OUT_DIR = f"ndipole{ndipole}_resolution{resolution}_{DESIGN_MODE}_loc0.5"
+OUT_DIR = f"ndipole{ndipole}_resolution{resolution}_{DESIGN_MODE}_loc{source_x_position}"
 os.makedirs(OUT_DIR, exist_ok=True)
 
 def save_figure(filename, dpi=200):
